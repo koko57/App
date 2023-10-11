@@ -532,6 +532,7 @@ function ComposerWithSuggestions({
                     setIsFullComposerAvailable={setIsFullComposerAvailable}
                     isComposerFullSize={isComposerFullSize}
                     value={value}
+                    testID="composer"
                     numberOfLines={numberOfLines}
                     onNumberOfLinesChange={updateNumberOfLines}
                     shouldCalculateCaretPosition
