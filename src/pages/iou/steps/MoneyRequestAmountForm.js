@@ -81,6 +81,7 @@ function MoneyRequestAmountForm({amount, currency, isEditing, forwardedRef, onCu
         start: selectedAmountAsString.length,
         end: selectedAmountAsString.length,
     });
+    console.log({selection});
 
     const forwardDeletePressedRef = useRef(false);
 
@@ -136,10 +137,15 @@ function MoneyRequestAmountForm({amount, currency, isEditing, forwardedRef, onCu
             if (!_.isEmpty(formError)) {
                 setFormError('');
             }
+            // CHANGE HERE
+            let isSelectionSet = false;
             setCurrentAmount((prevAmount) => {
                 const strippedAmount = MoneyRequestUtils.stripCommaFromAmount(newAmountWithoutSpaces);
                 const isForwardDelete = prevAmount.length > strippedAmount.length && forwardDeletePressedRef.current;
-                setSelection((prevSelection) => getNewSelection(prevSelection, isForwardDelete ? strippedAmount.length : prevAmount.length, strippedAmount.length));
+                setSelection((prevSelection) => {
+                    isSelectionSet = true;
+                    return getNewSelection(prevSelection, isForwardDelete ? strippedAmount.length : prevAmount.length, strippedAmount.length)
+                });
                 return strippedAmount;
             });
         },
