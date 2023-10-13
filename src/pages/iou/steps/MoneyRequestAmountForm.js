@@ -64,7 +64,14 @@ const AMOUNT_VIEW_ID = 'amountView';
 const NUM_PAD_CONTAINER_VIEW_ID = 'numPadContainerView';
 const NUM_PAD_VIEW_ID = 'numPadView';
 
-function MoneyRequestAmountForm({amount, currency, isEditing, forwardedRef, onCurrencyButtonPress, onSubmitButtonPress}) {
+function MoneyRequestAmountForm({
+                                    amount,
+                                    currency,
+                                    isEditing,
+                                    forwardedRef,
+                                    onCurrencyButtonPress,
+                                    onSubmitButtonPress
+                                }) {
     const {isExtraSmallScreenHeight} = useWindowDimensions();
     const {translate, toLocaleDigit, numberFormat} = useLocalize();
 
@@ -142,10 +149,12 @@ function MoneyRequestAmountForm({amount, currency, isEditing, forwardedRef, onCu
             setCurrentAmount((prevAmount) => {
                 const strippedAmount = MoneyRequestUtils.stripCommaFromAmount(newAmountWithoutSpaces);
                 const isForwardDelete = prevAmount.length > strippedAmount.length && forwardDeletePressedRef.current;
-                setSelection((prevSelection) => {
-                    isSelectionSet = true;
-                    return getNewSelection(prevSelection, isForwardDelete ? strippedAmount.length : prevAmount.length, strippedAmount.length)
-                });
+                if (!isSelectionSet) {
+                    setSelection((prevSelection) => {
+                        isSelectionSet = true;
+                        return getNewSelection(prevSelection, isForwardDelete ? strippedAmount.length : prevAmount.length, strippedAmount.length)
+                    });
+                }
                 return strippedAmount;
             });
         },
