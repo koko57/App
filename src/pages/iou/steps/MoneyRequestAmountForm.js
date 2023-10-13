@@ -73,14 +73,18 @@ function MoneyRequestAmountForm({amount, currency, isEditing, forwardedRef, onCu
     const decimals = CurrencyUtils.getCurrencyDecimals(currency);
     const selectedAmountAsString = amount ? CurrencyUtils.convertToFrontendAmount(amount).toString() : '';
 
-    const [currentAmount, setCurrentAmount] = useState(selectedAmountAsString);
     const [formError, setFormError] = useState('');
     const [shouldUpdateSelection, setShouldUpdateSelection] = useState(true);
 
-    const [selection, setSelection] = useState({
-        start: selectedAmountAsString.length,
-        end: selectedAmountAsString.length,
+    const [amountAndSelection, setAmountAndSelection] = useState({
+        amount: selectedAmountAsString,
+        selection: {
+            start: selectedAmountAsString.length,
+            end: selectedAmountAsString.length,
+        }
     });
+
+    console.log({amountAndSelection});
 
     const forwardDeletePressedRef = useRef(false);
 
@@ -109,11 +113,14 @@ function MoneyRequestAmountForm({amount, currency, isEditing, forwardedRef, onCu
             return;
         }
         const amountAsStringForState = amount ? CurrencyUtils.convertToFrontendAmount(amount).toString() : '';
-        setCurrentAmount(amountAsStringForState);
-        setSelection({
-            start: amountAsStringForState.length,
-            end: amountAsStringForState.length,
-        });
+
+        setAmountAndSelection({
+            amount: amountAsStringForState,
+            selection: {
+                start: amountAsStringForState.length,
+                end: amountAsStringForState.length,
+            }
+        })
         // we want to update the state only when the amount is changed
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [amount]);
@@ -130,17 +137,22 @@ function MoneyRequestAmountForm({amount, currency, isEditing, forwardedRef, onCu
             // Use a shallow copy of selection to trigger setSelection
             // More info: https://github.com/Expensify/App/issues/16385
             if (!MoneyRequestUtils.validateAmount(newAmountWithoutSpaces, decimals)) {
-                setSelection((prevSelection) => ({...prevSelection}));
+                // setSelection((prevSelection) => ({...prevSelection}));
+                setAmountAndSelection(prevState => ({
+                    ...prevState,
+                }))
                 return;
             }
             if (!_.isEmpty(formError)) {
                 setFormError('');
             }
-            setCurrentAmount((prevAmount) => {
+            setAmountAndSelection((prevState) => {
                 const strippedAmount = MoneyRequestUtils.stripCommaFromAmount(newAmountWithoutSpaces);
-                const isForwardDelete = prevAmount.length > strippedAmount.length && forwardDeletePressedRef.current;
-                setSelection((prevSelection) => getNewSelection(prevSelection, isForwardDelete ? strippedAmount.length : prevAmount.length, strippedAmount.length));
-                return strippedAmount;
+                const isForwardDelete = prevState.amount.length > strippedAmount.length && forwardDeletePressedRef.current;
+                return {
+                    amount: strippedAmount,
+                    selection: getNewSelection(prevState.selection, isForwardDelete ? strippedAmount.length : prevState.amount.length, strippedAmount.length)
+                };
             });
         },
         [decimals, formError],
@@ -149,12 +161,12 @@ function MoneyRequestAmountForm({amount, currency, isEditing, forwardedRef, onCu
     // Modifies the amount to match the decimals for changed currency.
     useEffect(() => {
         // If the changed currency supports decimals, we can return
-        if (MoneyRequestUtils.validateAmount(currentAmount, decimals)) {
+        if (MoneyRequestUtils.validateAmount(amountAndSelection.amount, decimals)) {
             return;
         }
 
         // If the changed currency doesn't support decimals, we can strip the decimals
-        setNewAmount(MoneyRequestUtils.stripDecimalsFromAmount(currentAmount));
+        setNewAmount(MoneyRequestUtils.stripDecimalsFromAmount(amountAndSelection.amount));
 
         // we want to update only when decimals change (setNewAmount also changes when decimals change).
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -173,17 +185,17 @@ function MoneyRequestAmountForm({amount, currency, isEditing, forwardedRef, onCu
             }
             // Backspace button is pressed
             if (key === '<' || key === 'Backspace') {
-                if (currentAmount.length > 0) {
-                    const selectionStart = selection.start === selection.end ? selection.start - 1 : selection.start;
-                    const newAmount = `${currentAmount.substring(0, selectionStart)}${currentAmount.substring(selection.end)}`;
+                if (amountAndSelection.amount.length > 0) {
+                    const selectionStart = amountAndSelection.selection.start === amountAndSelection.selection.end ? amountAndSelection.selection.start - 1 : amountAndSelection.selection.start;
+                    const newAmount = `${amountAndSelection.amount.substring(0, selectionStart)}${amountAndSelection.amount.substring(amountAndSelection.selection.end)}`;
                     setNewAmount(MoneyRequestUtils.addLeadingZero(newAmount));
                 }
                 return;
             }
-            const newAmount = MoneyRequestUtils.addLeadingZero(`${currentAmount.substring(0, selection.start)}${key}${currentAmount.substring(selection.end)}`);
+            const newAmount = MoneyRequestUtils.addLeadingZero(`${amountAndSelection.amount.substring(0, amountAndSelection.selection.start)}${key}${amountAndSelection.amount.substring(amountAndSelection.selection.end)}`);
             setNewAmount(newAmount);
         },
-        [currentAmount, selection, shouldUpdateSelection, setNewAmount],
+        [amountAndSelection.amount, amountAndSelection.selection, shouldUpdateSelection, setNewAmount],
     );
 
     /**
@@ -202,13 +214,13 @@ function MoneyRequestAmountForm({amount, currency, isEditing, forwardedRef, onCu
      * Submit amount and navigate to a proper page
      */
     const submitAndNavigateToNextPage = useCallback(() => {
-        if (isAmountInvalid(currentAmount)) {
+        if (isAmountInvalid(amountAndSelection.amount)) {
             setFormError('iou.error.invalidAmount');
             return;
         }
 
-        onSubmitButtonPress(currentAmount);
-    }, [onSubmitButtonPress, currentAmount]);
+        onSubmitButtonPress(amountAndSelection.amount);
+    }, [onSubmitButtonPress, amountAndSelection.amount]);
 
     /**
      * Input handler to check for a forward-delete key (or keyboard shortcut) press.
@@ -226,9 +238,16 @@ function MoneyRequestAmountForm({amount, currency, isEditing, forwardedRef, onCu
         forwardDeletePressedRef.current = key === 'delete' || (_.contains([CONST.OS.MAC_OS, CONST.OS.IOS], getOperatingSystem()) && nativeEvent.ctrlKey && key === 'd');
     };
 
-    const formattedAmount = MoneyRequestUtils.replaceAllDigits(currentAmount, toLocaleDigit);
+    const formattedAmount = MoneyRequestUtils.replaceAllDigits(amountAndSelection.amount, toLocaleDigit);
     const buttonText = isEditing ? translate('common.save') : translate('common.next');
     const canUseTouchScreen = DeviceCapabilities.canUseTouchScreen();
+
+    const setSelectionOnly = (newSelection) => {
+        setAmountAndSelection(prevState => ({
+            amount: prevState.amount,
+            selection: newSelection
+        }))
+    }
 
     return (
         <ScrollView contentContainerStyle={styles.flexGrow1}>
@@ -252,12 +271,12 @@ function MoneyRequestAmountForm({amount, currency, isEditing, forwardedRef, onCu
                         textInput.current = ref;
                     }}
                     selectedCurrencyCode={currency}
-                    selection={selection}
+                    selection={amountAndSelection.selection}
                     onSelectionChange={(e) => {
                         if (!shouldUpdateSelection) {
                             return;
                         }
-                        setSelection(e.nativeEvent.selection);
+                        setSelectionOnly(e.nativeEvent.selection);
                     }}
                     onKeyPress={textInputKeyPress}
                 />
@@ -306,3 +325,4 @@ export default React.forwardRef((props, ref) => (
         forwardedRef={ref}
     />
 ));
+
