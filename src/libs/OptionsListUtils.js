@@ -22,6 +22,7 @@ import * as ReportUtils from './ReportUtils';
 import * as TaskUtils from './TaskUtils';
 import * as TransactionUtils from './TransactionUtils';
 import * as UserUtils from './UserUtils';
+import * as ReportActionsUtils from "@libs/ReportActionsUtils";
 
 /**
  * OptionsListUtils is used to build a list options passed to the OptionsList component. Several different UI views can
@@ -424,6 +425,121 @@ function getLastMessageTextForReport(report) {
     return lastMessageTextFromReport;
 }
 
+
+
+function createAlternateText({showChatPreviewLine, report, login, lastActorDetails, hasMultipleParticipants, result, forcePolicyNamePreview, subtitle}) {
+    if (!showChatPreviewLine) {
+        return login
+    } else {
+        let alternateText;
+        const lastMessageTextFromReport = getLastMessageTextForReport(report);
+        const shouldShowDisplayName = hasMultipleParticipants && lastActorDetails?.accountID && Number(lastActorDetails.accountID) !== currentUserAccountID;
+
+        console.log({lastMessageTextFromReport});
+        const lastActorName = lastActorDetails?.firstName ?? lastActorDetails?.displayName;
+        const lastActorDisplayName = shouldShowDisplayName ? lastActorName : '';
+
+        let lastMessageText = lastMessageTextFromReport;
+
+        const reportAction = lastReportActions?.[report.reportID];
+        if (result.isArchivedRoom) {
+            const archiveReason = (reportAction?.actionName === CONST.REPORT.ACTIONS.TYPE.CLOSED && reportAction?.originalMessage?.reason) || CONST.REPORT.ARCHIVE_REASON.DEFAULT;
+
+            switch (archiveReason) {
+                case CONST.REPORT.ARCHIVE_REASON.ACCOUNT_CLOSED:
+                case CONST.REPORT.ARCHIVE_REASON.REMOVED_FROM_POLICY:
+                case CONST.REPORT.ARCHIVE_REASON.POLICY_DELETED: {
+                    lastMessageText = Localize.translate(preferredLocale, `reportArchiveReasons.${archiveReason}`, {
+                        policyName: ReportUtils.getPolicyName(report, false, policy),
+                        displayName: PersonalDetailsUtils.getDisplayNameOrDefault(lastActorDetails?.displayName),
+                    });
+                    break;
+                }
+                default: {
+                    lastMessageText = Localize.translate(preferredLocale, `reportArchiveReasons.default`);
+                }
+            }
+        }
+
+        const isThreadMessage =
+            ReportUtils.isThread(report) && reportAction?.actionName === CONST.REPORT.ACTIONS.TYPE.ADDCOMMENT && reportAction?.pendingAction !== CONST.RED_BRICK_ROAD_PENDING_ACTION.DELETE;
+
+        if ((result.isChatRoom || result.isPolicyExpenseChat || result.isThread || result.isTaskReport || isThreadMessage) && !result.isArchivedRoom) {
+            if ((result.isChatRoom || result.isPolicyExpenseChat) && forcePolicyNamePreview || !lastMessageText) {
+                alternateText = subtitle
+            }
+
+            const lastAction = allReportActions[report.reportID];
+
+            if (lastAction?.actionName === CONST.REPORT.ACTIONS.TYPE.RENAMED) {
+                const newName = lastAction?.originalMessage?.newName ?? '';
+                alternateText = Localize.translate(preferredLocale, 'newRoomPage.roomRenamedTo', {newName});
+            } else if (ReportActionsUtils.isTaskAction(lastAction)) {
+                alternateText = TaskUtils.getTaskReportActionMessage(lastAction.actionName);
+            } else if (
+                lastAction?.actionName === CONST.REPORT.ACTIONS.TYPE.ROOMCHANGELOG.INVITE_TO_ROOM ||
+                lastAction?.actionName === CONST.REPORT.ACTIONS.TYPE.ROOMCHANGELOG.REMOVE_FROM_ROOM ||
+                lastAction?.actionName === CONST.REPORT.ACTIONS.TYPE.POLICYCHANGELOG.INVITE_TO_ROOM ||
+                lastAction?.actionName === CONST.REPORT.ACTIONS.TYPE.POLICYCHANGELOG.REMOVE_FROM_ROOM
+            ) {
+                const targetAccountIDs = lastAction?.originalMessage?.targetAccountIDs ?? [];
+                const verb =
+                    lastAction.actionName === CONST.REPORT.ACTIONS.TYPE.ROOMCHANGELOG.INVITE_TO_ROOM || lastAction.actionName === CONST.REPORT.ACTIONS.TYPE.POLICYCHANGELOG.INVITE_TO_ROOM
+                        ? Localize.translate(preferredLocale, 'workspace.invite.invited')
+                        : Localize.translate(preferredLocale, 'workspace.invite.removed');
+                const users = Localize.translate(preferredLocale, targetAccountIDs.length > 1 ? 'workspace.invite.users' : 'workspace.invite.user');
+                alternateText = `${verb} ${targetAccountIDs.length} ${users}`;
+
+                const roomName = lastAction?.originalMessage?.roomName ?? '';
+                if (roomName) {
+                    const preposition =
+                        lastAction.actionName === CONST.REPORT.ACTIONS.TYPE.ROOMCHANGELOG.INVITE_TO_ROOM || lastAction.actionName === CONST.REPORT.ACTIONS.TYPE.POLICYCHANGELOG.INVITE_TO_ROOM
+                            ? ` ${Localize.translate(preferredLocale, 'workspace.invite.to')}`
+                            : ` ${Localize.translate(preferredLocale, 'workspace.invite.from')}`;
+                    alternateText += `${preposition} ${roomName}`;
+                }
+            } else if (lastAction?.actionName !== CONST.REPORT.ACTIONS.TYPE.REPORTPREVIEW && lastActorDisplayName && lastMessageTextFromReport) {
+                alternateText = `${lastActorDisplayName}: ${lastMessageText}`;
+            } else {
+                alternateText = lastMessageTextFromReport.length > 0 ? lastMessageText : Localize.translate(preferredLocale, 'report.noActivityYet');
+            }
+        } else {
+            if (!lastMessageText) {
+                // Here we get the beginning of chat history message and append the display name for each user, adding pronouns if there are any.
+                // We also add a fullstop after the final name, the word "and" before the final name and commas between all previous names.
+                // lastMessageText =
+                //     Localize.translate(preferredLocale, 'reportActionsView.beginningOfChatHistory') +
+                //     displayNamesWithTooltips
+                //         .map(({displayName, pronouns}, index) => {
+                //             const formattedText = !pronouns ? displayName : `${displayName} (${pronouns})`;
+                //
+                //             if (index === displayNamesWithTooltips.length - 1) {
+                //                 return `${formattedText}.`;
+                //             }
+                //             if (index === displayNamesWithTooltips.length - 2) {
+                //                 return `${formattedText} ${Localize.translate(preferredLocale, 'common.and')}`;
+                //             }
+                //             if (index < displayNamesWithTooltips.length - 2) {
+                //                 return `${formattedText},`;
+                //             }
+                //
+                //             return '';
+                //         })
+                //         .join(' ');
+            }
+
+            alternateText = lastMessageText || login;
+        }
+        return alternateText
+    }
+}
+
+
+
+
+
+
+
 /**
  * Creates a report list option
  *
@@ -481,6 +597,8 @@ function createOption(accountIDs, personalDetails, report, reportActions = {}, {
     result.participantsList = personalDetailList;
     result.isOptimisticPersonalDetail = personalDetail.isOptimisticPersonalDetail;
 
+    const login = LocalePhoneNumber.formatPhoneNumber(lodashGet(personalDetails, [accountIDs[0], 'login'], ''));
+
     if (report) {
         result.isChatRoom = ReportUtils.isChatRoom(report);
         result.isDefaultRoom = ReportUtils.isDefaultRoom(report);
@@ -509,32 +627,21 @@ function createOption(accountIDs, personalDetails, report, reportActions = {}, {
         hasMultipleParticipants = personalDetailList.length > 1 || result.isChatRoom || result.isPolicyExpenseChat;
         subtitle = ReportUtils.getChatRoomSubtitle(report);
 
-        const lastMessageTextFromReport = getLastMessageTextForReport(report);
         const lastActorDetails = personalDetailMap[report.lastActorAccountID] || null;
-        const lastActorDisplayName =
-            hasMultipleParticipants && lastActorDetails && lastActorDetails.accountID !== currentUserAccountID ? lastActorDetails.firstName || lastActorDetails.displayName : '';
-        let lastMessageText = lastActorDisplayName ? `${lastActorDisplayName}: ${lastMessageTextFromReport}` : lastMessageTextFromReport;
 
-        if (result.isArchivedRoom) {
-            const archiveReason =
-                (lastReportActions[report.reportID] && lastReportActions[report.reportID].originalMessage && lastReportActions[report.reportID].originalMessage.reason) ||
-                CONST.REPORT.ARCHIVE_REASON.DEFAULT;
-            lastMessageText = Localize.translate(preferredLocale, `reportArchiveReasons.${archiveReason}`, {
-                displayName: archiveReason.displayName || PersonalDetailsUtils.getDisplayNameOrDefault(lodashGet(lastActorDetails, 'displayName')),
-                policyName: ReportUtils.getPolicyName(report),
-            });
-        }
 
-        if (result.isThread || result.isMoneyRequestReport) {
-            result.alternateText = lastMessageTextFromReport.length > 0 ? lastMessageText : Localize.translate(preferredLocale, 'report.noActivityYet');
-        } else if (result.isChatRoom || result.isPolicyExpenseChat) {
-            result.alternateText = showChatPreviewLine && !forcePolicyNamePreview && lastMessageText ? lastMessageText : subtitle;
-        } else if (result.isTaskReport) {
-            result.alternateText = showChatPreviewLine && lastMessageText ? lastMessageTextFromReport : Localize.translate(preferredLocale, 'report.noActivityYet');
-        } else {
-            result.alternateText = showChatPreviewLine && lastMessageText ? lastMessageText : LocalePhoneNumber.formatPhoneNumber(personalDetail.login);
-        }
+
+        // if (result.isThread) {
+        //     result.alternateText = lastMessageTextFromReport.length > 0 ? lastMessageTextFromReport : Localize.translate(preferredLocale, 'report.noActivityYet');
+        // } else if (result.isChatRoom || result.isPolicyExpenseChat) {
+        //     result.alternateText = showChatPreviewLine && !forcePolicyNamePreview && lastMessageText ? lastMessageText : subtitle;
+        // } else if (result.isTaskReport) {
+        //     result.alternateText = showChatPreviewLine && lastMessageText ? lastMessageTextFromReport : Localize.translate(preferredLocale, 'report.noActivityYet');
+        // } else {
+        //     result.alternateText = showChatPreviewLine && lastMessageText ? lastMessageText : LocalePhoneNumber.formatPhoneNumber(personalDetail.login);
+        // }
         reportName = ReportUtils.getReportName(report);
+        result.alternateText = createAlternateText({showChatPreviewLine, lastActorDetails, report, login, result, forcePolicyNamePreview, subtitle})
     } else {
         reportName = ReportUtils.getDisplayNameForParticipant(accountIDs[0]) || LocalePhoneNumber.formatPhoneNumber(personalDetail.login);
         result.keyForList = String(accountIDs[0]);
@@ -554,7 +661,6 @@ function createOption(accountIDs, personalDetails, report, reportActions = {}, {
     result.searchText = getSearchText(report, reportName, personalDetailList, result.isChatRoom || result.isPolicyExpenseChat, result.isThread);
     result.icons = ReportUtils.getIcons(report, personalDetails, UserUtils.getAvatar(personalDetail.avatar, personalDetail.accountID), personalDetail.login, personalDetail.accountID);
     result.subtitle = subtitle;
-
     return result;
 }
 
@@ -565,7 +671,7 @@ function createOption(accountIDs, personalDetails, report, reportActions = {}, {
  */
 function getPolicyExpenseReportOption(report) {
     const expenseReport = policyExpenseReports[`${ONYXKEYS.COLLECTION.REPORT}${report.reportID}`];
-
+    console.log('getPolicy');
     const option = createOption(
         expenseReport.participantAccountIDs,
         allPersonalDetails,
@@ -1216,6 +1322,7 @@ function getOptions(
     // See https://github.com/Expensify/Expensify/issues/293465 for more context
     // Moreover, we should not override the personalDetails object, otherwise the createOption util won't work properly, it returns incorrect tooltipText
     const havingLoginPersonalDetails = !includeP2P ? {} : _.pick(personalDetails, (detail) => Boolean(detail.login) && !detail.isOptimisticPersonalDetail);
+    console.log({havingLoginPersonalDetails});
     let allPersonalDetailsOptions = _.map(havingLoginPersonalDetails, (personalDetail) =>
         createOption([personalDetail.accountID], personalDetails, reportMapForAccountIDs[personalDetail.accountID], reportActions, {
             showChatPreviewLine,
