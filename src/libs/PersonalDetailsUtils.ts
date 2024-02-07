@@ -24,6 +24,31 @@ Onyx.connect({
     },
 });
 
+/**
+ * Gets the personal details for a login by looking in the ONYXKEYS.PERSONAL_DETAILS_LIST Onyx key (stored in the local variable, allPersonalDetails). If it doesn't exist in Onyx,
+ * then a default object is constructed.
+ */
+
+function getPersonalDetailsForAccountID(accountID: number): Partial<PersonalDetails> {
+    if (!accountID) {
+        return {};
+    }
+    if (Number(accountID) === CONST.ACCOUNT_ID.CONCIERGE) {
+        return {
+            accountID,
+            displayName: 'Concierge',
+            login: CONST.EMAIL.CONCIERGE,
+            avatar: UserUtils.getDefaultAvatar(accountID),
+        };
+    }
+    return (
+        allPersonalDetails?.[accountID] ?? {
+            avatar: UserUtils.getDefaultAvatar(accountID),
+            isOptimisticPersonalDetail: true,
+        }
+    );
+}
+
 function getDisplayNameOrDefault(passedPersonalDetails?: Partial<PersonalDetails> | null, defaultValue = '', shouldFallbackToHidden = true): string {
     const displayName = passedPersonalDetails?.displayName ? passedPersonalDetails.displayName.replace(CONST.REGEX.MERGED_ACCOUNT_PREFIX, '') : '';
     const fallbackValue = shouldFallbackToHidden ? Localize.translateLocal('common.hidden') : '';
@@ -272,4 +297,5 @@ export {
     getEffectiveDisplayName,
     createDisplayName,
     extractFirstAndLastNameFromAvailableDetails,
+    getPersonalDetailsForAccountID,
 };

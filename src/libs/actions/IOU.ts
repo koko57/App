@@ -41,6 +41,7 @@ import * as ReportUtils from '@libs/ReportUtils';
 import type {OptimisticChatReport, OptimisticCreatedReportAction, OptimisticIOUReportAction, TransactionDetails} from '@libs/ReportUtils';
 import * as TransactionUtils from '@libs/TransactionUtils';
 import * as UserUtils from '@libs/UserUtils';
+import * as PersonalDetailsUtils from '@libs/PersonalDetailsUtils';
 import ViolationsUtils from '@libs/Violations/ViolationsUtils';
 import type {MoneyRequestNavigatorParamList} from '@navigation/types';
 import CONST from '@src/CONST';
@@ -2378,7 +2379,7 @@ function editRegularMoneyRequest(transactionID: string, transactionThreadReportI
         // Update the last message of the chat report
         const hasNonReimbursableTransactions = ReportUtils.hasNonReimbursableTransactions(iouReport?.reportID);
         const messageText = Localize.translateLocal(hasNonReimbursableTransactions ? 'iou.payerSpentAmount' : 'iou.payerOwesAmount', {
-            payer: ReportUtils.getPersonalDetailsForAccountID(updatedMoneyRequestReport.managerID ?? -1).login ?? '',
+            payer: PersonalDetailsUtils.getPersonalDetailsForAccountID(updatedMoneyRequestReport.managerID ?? -1).login ?? '',
             amount: CurrencyUtils.convertToDisplayString(updatedMoneyRequestReport.total, updatedMoneyRequestReport.currency),
         });
         updatedChatReport.lastMessageText = messageText;
@@ -2657,7 +2658,7 @@ function deleteMoneyRequest(transactionID: string, reportAction: OnyxTypes.Repor
 
     const hasNonReimbursableTransactions = ReportUtils.hasNonReimbursableTransactions(iouReport?.reportID);
     const messageText = Localize.translateLocal(hasNonReimbursableTransactions ? 'iou.payerSpentAmount' : 'iou.payerOwesAmount', {
-        payer: ReportUtils.getPersonalDetailsForAccountID(updatedIOUReport?.managerID ?? -1).login ?? '',
+        payer: PersonalDetailsUtils.getPersonalDetailsForAccountID(updatedIOUReport?.managerID ?? -1).login ?? '',
         amount: CurrencyUtils.convertToDisplayString(updatedIOUReport?.total, updatedIOUReport?.currency),
     });
 

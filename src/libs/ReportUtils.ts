@@ -1577,29 +1577,6 @@ function getIcons(
     return getIconsForParticipants(report?.participantAccountIDs ?? [], personalDetails);
 }
 
-/**
- * Gets the personal details for a login by looking in the ONYXKEYS.PERSONAL_DETAILS_LIST Onyx key (stored in the local variable, allPersonalDetails). If it doesn't exist in Onyx,
- * then a default object is constructed.
- */
-function getPersonalDetailsForAccountID(accountID: number): Partial<PersonalDetails> {
-    if (!accountID) {
-        return {};
-    }
-    if (Number(accountID) === CONST.ACCOUNT_ID.CONCIERGE) {
-        return {
-            accountID,
-            displayName: 'Concierge',
-            login: CONST.EMAIL.CONCIERGE,
-            avatar: UserUtils.getDefaultAvatar(accountID),
-        };
-    }
-    return (
-        allPersonalDetails?.[accountID] ?? {
-            avatar: UserUtils.getDefaultAvatar(accountID),
-            isOptimisticPersonalDetail: true,
-        }
-    );
-}
 
 /**
  * Get the displayName for a single report participant.
@@ -1609,7 +1586,7 @@ function getDisplayNameForParticipant(accountID?: number, shouldUseShortForm = f
         return '';
     }
 
-    const personalDetails = getPersonalDetailsForAccountID(accountID);
+    const personalDetails = PersonalDetailsUtils.getPersonalDetailsForAccountID(accountID);
     // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
     const formattedLogin = LocalePhoneNumber.formatPhoneNumber(personalDetails.login || '');
     // This is to check if account is an invite/optimistically created one
@@ -2774,7 +2751,7 @@ function buildOptimisticTaskCommentReportAction(taskReportID: string, taskTitle:
 
 function buildOptimisticIOUReport(payeeAccountID: number, payerAccountID: number, total: number, chatReportID: string, currency: string, isSendingMoney = false): OptimisticIOUReport {
     const formattedTotal = CurrencyUtils.convertToDisplayString(total, currency);
-    const personalDetails = getPersonalDetailsForAccountID(payerAccountID);
+    const personalDetails = PersonalDetailsUtils.getPersonalDetailsForAccountID(payerAccountID);
     const payerEmail = 'login' in personalDetails ? personalDetails.login : '';
 
     // When creating a report the participantsAccountIDs and visibleChatMemberAccountIDs are the same
@@ -4952,7 +4929,6 @@ export {
     parseReportRouteParams,
     getReimbursementQueuedActionMessage,
     getReimbursementDeQueuedActionMessage,
-    getPersonalDetailsForAccountID,
     getRoom,
     canEditReportDescription,
     doesTransactionThreadHaveViolations,
